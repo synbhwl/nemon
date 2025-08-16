@@ -4,9 +4,19 @@ from bs4 import BeautifulSoup
 import asyncio
 from pydantic import BaseModel, Field, HttpUrl
 from typing import Optional 
+from groq import Groq
+import os
+from dotenv import load_dotenv
+from jinja2 import Template
 
+load_dotenv()
 
 app = FastAPI()
+
+
+client = Groq(
+    api_key=os.getenv("GROQ_API_KEY"),
+    )
 
 class Scrape_req(BaseModel):
     url:HttpUrl
@@ -50,11 +60,37 @@ def parse_page(res: httpx.Response, req: Scrape_req):
 
     return result
 
+def read_prompt(payload: Scrape_res):
+    try:
+        with open('prompts/prompt.txt') as f:
+            prompt = Template(f.read())
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"err: error while reading prompt file {str(e)}")
+
+    prompt_final = prompt.render(title=payload.title, desc=payload.description, page_content=payload.content, url=payload.url)
+    return prompt_final
+
+def send_req_to_groq(payload: Scrape_res):
+    prompt_final = read_prompt(payload)
+    try:
+        chat_completion = client.chat.completions.create(
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt_final,
+                }
+            ],
+            model="llama3-70b-8192",
+        )
+        message = chat_completion.choices[0].message.content
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"err: error while making api call to groq: {str(e)}")
+    return message
 
 @app.post('/find')
 async def scarpe(req: Scrape_req):
     res = await http_client(req)
-    result= parse_page(res, req)
-    return result
-
+    payload = parse_page(res, req)
+    api_res = send_req_to_groq(payload) 
+    return api_res
 ## should be fine
