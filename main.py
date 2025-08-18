@@ -21,8 +21,8 @@ client = Groq(
     api_key=api_key,
     )
 
-class Scrape_req(BaseModel):
-    url:HttpUrl
+#class Scrape_req(BaseModel):
+#    url:HttpUrl
 
 class Scrape_res(BaseModel):
     url: HttpUrl
@@ -30,18 +30,18 @@ class Scrape_res(BaseModel):
     description: Optional[str]
     content: Optional[str]
 
-async def http_client(req: Scrape_req):
+async def http_client(url: str):
     headers = {'User-Agent':'Mozilla/5.0'}
     try:
         async with httpx.AsyncClient() as client:
-            res = await client.get(str(req.url), headers=headers)
+            res = await client.get(str(url), headers=headers)
             res.raise_for_status()
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"err while sending request to target url: {str(e)}")
     
     return res
 
-def parse_page(res: httpx.Response, req: Scrape_req):
+def parse_page(res: httpx.Response, url: str):
     soup = BeautifulSoup(res.text, 'html.parser')
     title = soup.find('title')
     desc = soup.find('meta', attrs={'name':'description'}) or soup.find('meta', attr={'property':'og:description'})
@@ -55,7 +55,7 @@ def parse_page(res: httpx.Response, req: Scrape_req):
         tags.decompose()
     
     result = Scrape_res(
-            url=req.url,
+            url=url,
             title=title.text.strip() if title else "No title found for this url",
             description=desc.get("content","").strip() if desc else "No description found for this url",
             content=para_text if para_text else "No content found on this url"
@@ -90,10 +90,10 @@ def send_req_to_groq(payload: Scrape_res):
         raise HTTPException(status_code=500, detail=f"err: error while making api call to groq: {str(e)}")
     return message
 
-@app.post('/scrape/webpage')
-async def scarpe_webpage(req: Scrape_req):
-    res = await http_client(req)
-    payload = parse_page(res, req)
+@app.get('/scrape/webpage')
+async def scarpe_webpage(url: str):
+    res = await http_client(url)
+    payload = parse_page(res,url)
     api_res = send_req_to_groq(payload) 
     return api_res
 ## should be fine
