@@ -8,6 +8,7 @@ from groq import Groq
 import os
 from dotenv import load_dotenv
 from jinja2 import Template
+from urllib.parse import urlparse
 
 load_dotenv()
 
@@ -17,12 +18,12 @@ api_key = os.getenv("GROQ_API_KEY").strip()
 if not api_key:
     raise HTTPException(status_code=500, detail="api key not found")
 
-client = Groq(
-    api_key=api_key,
-    )
-
-#class Scrape_req(BaseModel):
-#    url:HttpUrl
+try:
+    client = Groq(
+        api_key=api_key,
+        )
+except Exception as e:
+    raise HTTPException(status_code=400, detail=f"error while making groq client {str(e)}")
 
 class Scrape_res(BaseModel):
     url: HttpUrl
@@ -30,14 +31,21 @@ class Scrape_res(BaseModel):
     description: Optional[str]
     content: Optional[str]
 
+def url_manual_validation(url: str):
+    try:
+        result = urlparse(url)
+        return all([result.scheme, result.netloc])
+    except Exception:
+        return False
+
 async def http_client(url: str):
     headers = {'User-Agent':'Mozilla/5.0'}
     try:
         async with httpx.AsyncClient() as client:
-            res = await client.get(str(url), headers=headers)
+            res = await client.get(str(url), headers=headers,follow_redirects=True)
             res.raise_for_status()
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"err while sending request to target url: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"err while sending request to target url: {str(e)}: network issue or url doesn't exist.")
     
     return res
 
@@ -92,6 +100,9 @@ def send_req_to_groq(payload: Scrape_res):
 
 @app.get('/scrape/webpage')
 async def scarpe_webpage(url: str):
+    isvalid = url_manual_validation(url)
+    if not isvalid:
+        raise HTTPException(status_code=400, detail="invalid url")
     res = await http_client(url)
     payload = parse_page(res,url)
     api_res = send_req_to_groq(payload) 
