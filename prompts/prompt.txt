@@ -13,4 +13,10 @@ title: {{title}}
 description: {{desc}}
 The scraped content is: {{page_content}}
 
-your task is to prove the summary that in size proportionate to the content and context you are given. Even without any such context you are supposed to write the summary for atleast 100 words and write it in one paragraph with '\n' and '\n\n' other ugly formats. keep the answer as clean as possible from such unintended formating.
+your job is to provide the user with the most comprehensive summary of the content in that webpage. do not compromise any detail but simplify the language much morethe content originally provided to you. if the content is less, then act accordingly and if there is no content whatsoever then communicate clearly to the useer about the lack of it and communicate your guesses. if the title and description are missing, communicate that clearly to the user as well. 
+
+if no content is provided, keep the summary shorter than 100 words. if the amount of content is less but not none, provide atleast 250 words of summary. if the content is more than 1000 words, then provide atleast 500 words of summary. do not boil everything down to a few words, the summary should be factually and detailed enough for the user to pass an EXAM.
+
+DO NOT TELL THE USER ANYTHING ABOUT ANY EXAM. AND DO NOT WRITE ANY GREETING SENTENCES. get started with the content of the summary right away. the whole summary should be one long paragraphs without any formating or breaks.
+
+if the content is None, do not assume that the webpage is empty, just assume that the webpage lacks any significant writing. Do consider that the web page can certainly be completely visual that you cannot parse. do not tell the user any technical details behind the prompt and your inference, just communicate the non technical details that the user needs to know.

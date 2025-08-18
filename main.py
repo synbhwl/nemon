@@ -13,9 +13,12 @@ load_dotenv()
 
 app = FastAPI()
 
+api_key = os.getenv("GROQ_API_KEY").strip()
+if not api_key:
+    raise HTTPException(status_code=500, detail="api key not found")
 
 client = Groq(
-    api_key=os.getenv("GROQ_API_KEY"),
+    api_key=api_key,
     )
 
 class Scrape_req(BaseModel):
@@ -50,11 +53,11 @@ def parse_page(res: httpx.Response, req: Scrape_req):
 
     for tags in soup(["script", "style", "nav", "footer", "aside", "advertisement"]):
         tags.decompose()
-
+    
     result = Scrape_res(
             url=req.url,
             title=title.text.strip() if title else "No title found for this url",
-            description=desc.content.strip() if desc else "No description found for this url",
+            description=desc.get("content","").strip() if desc else "No description found for this url",
             content=para_text if para_text else "No content found on this url"
             )
 
@@ -87,8 +90,8 @@ def send_req_to_groq(payload: Scrape_res):
         raise HTTPException(status_code=500, detail=f"err: error while making api call to groq: {str(e)}")
     return message
 
-@app.post('/find')
-async def scarpe(req: Scrape_req):
+@app.post('/scrape/webpage')
+async def scarpe_webpage(req: Scrape_req):
     res = await http_client(req)
     payload = parse_page(res, req)
     api_res = send_req_to_groq(payload) 
