@@ -4,11 +4,12 @@ from bs4 import BeautifulSoup
 import asyncio
 from pydantic import BaseModel, Field, HttpUrl
 from typing import Optional 
-from groq import Groq
+from groq import AsyncGroq
 import os
 from dotenv import load_dotenv
 from jinja2 import Template
 from urllib.parse import urlparse
+import asyncio
 
 load_dotenv()
 
@@ -21,7 +22,7 @@ if not api_key:
 
 #this needs to be fixed
 try:
-    client = Groq(
+    client = AsyncGroq(
         api_key=api_key,
         )
 except Exception as e:
@@ -85,10 +86,13 @@ def parse_page(res: httpx.Response, url: str):
 
     return result
 
-def send_req_to_groq(payload: Scrape_res):
+
+#unsure whether it is truly async rn or i need to use something else like async groq
+
+async def send_req_to_groq(payload: Scrape_res):
     prompt_final = prompt.render(title=payload.title, desc=payload.description, page_content=payload.content, url=payload.url)
     try:
-        chat_completion = client.chat.completions.create(
+        chat_completion = await client.chat.completions.create(
             messages=[
                 {
                     "role": "user",
@@ -107,7 +111,8 @@ async def scarpe_webpage(url: str):
     isvalid = url_manual_validation(url)
     if not isvalid:
         raise HTTPException(status_code=400, detail="invalid url")
+
     res = await http_client(url)
     payload = parse_page(res,url)
-    api_res = send_req_to_groq(payload) 
+    api_res =await send_req_to_groq(payload) 
     return api_res
