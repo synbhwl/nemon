@@ -16,14 +16,23 @@ app = FastAPI()
 
 api_key = os.getenv("GROQ_API_KEY").strip()
 if not api_key:
-    raise HTTPException(status_code=500, detail="api key not found")
+    raise RuntimeError("api key not found")
 
+
+#this needs to be fixed
 try:
     client = Groq(
         api_key=api_key,
         )
 except Exception as e:
-    raise HTTPException(status_code=400, detail=f"error while making groq client {str(e)}")
+    raise RuntimeError(f"error while making groq client {str(e)}")
+
+try:
+    with open('prompts/prompt.txt', 'r') as f:
+        prompt = Template(f.read())
+except Exception as e:
+    raise RuntimeError(f"error while reading prompt file: {str(e)}")
+
 
 class Scrape_res(BaseModel):
     url: HttpUrl
@@ -40,10 +49,15 @@ def url_manual_validation(url: str):
 
 async def http_client(url: str):
     headers = {'User-Agent':'Mozilla/5.0'}
+    timeout = httpx.Timeout(15.0)
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=timeout) as client:
             res = await client.get(str(url), headers=headers,follow_redirects=True)
             res.raise_for_status()
+
+            if len(res.content)> 10_00_000:
+                raise HTTPException(status_code=413, detail="page too large (max 10mb)")
+            
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"err while sending request to target url: {str(e)}: network issue or url doesn't exist.")
     
@@ -71,18 +85,8 @@ def parse_page(res: httpx.Response, url: str):
 
     return result
 
-def read_prompt(payload: Scrape_res):
-    try:
-        with open('prompts/prompt.txt') as f:
-            prompt = Template(f.read())
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"err: error while reading prompt file {str(e)}")
-
-    prompt_final = prompt.render(title=payload.title, desc=payload.description, page_content=payload.content, url=payload.url)
-    return prompt_final
-
 def send_req_to_groq(payload: Scrape_res):
-    prompt_final = read_prompt(payload)
+    prompt_final = prompt.render(title=payload.title, desc=payload.description, page_content=payload.content, url=payload.url)
     try:
         chat_completion = client.chat.completions.create(
             messages=[
@@ -107,4 +111,3 @@ async def scarpe_webpage(url: str):
     payload = parse_page(res,url)
     api_res = send_req_to_groq(payload) 
     return api_res
-## should be fine
