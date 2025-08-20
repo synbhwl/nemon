@@ -64,6 +64,8 @@ async def http_client(url: str):
     
     return res
 
+#i need to find the right elements to parse so that i dont leave out neccessary details. gpt says i am relying too much on heuristic parsing. 
+
 def parse_page(res: httpx.Response, url: str):
     soup = BeautifulSoup(res.text, 'html.parser')
     title = soup.find('title')
@@ -87,7 +89,8 @@ def parse_page(res: httpx.Response, url: str):
     return result
 
 
-#unsure whether it is truly async rn or i need to use something else like async groq
+#unsure whether it is truly async rn or i need to use something else
+#update: ok i actually replaced the previous groq code with AsyncGroq, now it should be async
 
 async def send_req_to_groq(payload: Scrape_res):
     prompt_final = prompt.render(title=payload.title, desc=payload.description, page_content=payload.content, url=payload.url)
@@ -99,7 +102,7 @@ async def send_req_to_groq(payload: Scrape_res):
                     "content": prompt_final,
                 }
             ],
-            model="llama3-70b-8192",
+            model="llama-3.1-8b-instant",
         )
         message = chat_completion.choices[0].message.content
     except Exception as e:
