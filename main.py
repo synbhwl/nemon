@@ -25,7 +25,7 @@ except Exception as e:
 # api key
 API_KEY = os.getenv("GROQ_API_KEY").strip()
 if not API_KEY:
-	raise RuntimeError("api key not found")
+	raise KeyError("api key not found")
 
 # groq client
 try:
@@ -33,14 +33,18 @@ try:
 		api_key=API_KEY,
         	)
 except Exception as e:
-    	raise RuntimeError(f"error while building groq client")
+    	raise RuntimeError(f"error while building groq client: {str(e)}")
 
 def validate_url_manually(url:str) -> bool:
-    	try:
-        	result = urlparse(url)
-        	return all([result.scheme, result.netloc])
-    	except Exception:
-        	return False
+	try:
+		result = urlparse(url)
+		if result.scheme != 'https':
+			raise HTTPException(status_code=400, detail='nemon only supports scraping of url with https scheme')
+		if result.netloc in ['localhost', '127.0.0.1', '0.0.0.0', '198.168.1.1', '10.0.0.1', '172.16.0.1']:
+			raise HTTPException(status_code=400, detail='invalid url')
+		return all([result.scheme, result.netloc])
+	except Exception:
+		return False
 
 class Web_scraper:
 	def __init__ (self):
