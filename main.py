@@ -15,6 +15,26 @@ import markdown
 load_dotenv()
 app = FastAPI()
 
+#prompt str
+try:
+	with open('prompts/prompt.txt', 'r') as f:
+        	PROMPT = Template(f.read())
+except Exception as e:
+    	raise RuntimeError(f"error while reading prompt file")
+
+# api key
+API_KEY = os.getenv("GROQ_API_KEY").strip()
+if not API_KEY:
+	raise RuntimeError("api key not found")
+
+# groq client
+try:
+	CLIENT = AsyncGroq(
+		api_key=API_KEY,
+        	)
+except Exception as e:
+    	raise RuntimeError(f"error while building groq client")
+
 def validate_url_manually(url:str) -> bool:
     	try:
         	result = urlparse(url)
@@ -63,33 +83,13 @@ class Web_scraper:
            		}
     		return result
 
-class File_handler:
-	def __init__(self):
-		pass
-
-	def return_prompt_template(self, filepath):
-		try:
-			with open(filepath, 'r') as f:
-        			prompt = Template(f.read())
-		except Exception as e:
-    			raise RuntimeError(f"error while reading prompt file")
-		return prompt
 
 class Api_caller:
-	def __init__(self):	
-		self.api_key = os.getenv("GROQ_API_KEY").strip()
-		if not self.api_key:
-			raise RuntimeError("api key not found")
-
-		try:
-			self.client = AsyncGroq(
-			api_key=self.api_key,
-        		)
-		except Exception as e:
-    			raise RuntimeError(f"error while building groq client")
-
-	async def send_req_to_groq(self, result: dict, prompt:str) -> str:
-    		prompt_final = prompt.render(title=result["title"], desc=result["description"], page_content=result["content"], url=result["url"])
+	def __init__(self, prompt:str, client: AsyncGroq):
+		self.prompt = prompt
+		self.client = client
+	async def send_req_to_groq(self, result: dict) -> str:
+    		prompt_final = self.prompt.render(title=result["title"], desc=result["description"], page_content=result["content"], url=result["url"])
     		try:
         		chat_completion = await self.client.chat.completions.create(
             			messages=[
@@ -105,20 +105,12 @@ class Api_caller:
         		raise HTTPException(status_code=500, detail=f"err: error while making api call to groq")
     		return message
 
-class Format_handler:
-	def __init__(self):
-		pass
- 
-	def turn_api_res_to_html(self, api_res) -> str:
-		return markdown.markdown(api_res)
 
 @app.get('/scraper/webpage')
 async def summarize_webpage(url:str = Query()):
 
 	scraper = Web_scraper()
-	handler = File_handler()
-	caller = Api_caller()
-	formatter = Format_handler()
+	caller = Api_caller(PROMPT, CLIENT)
 
 	is_valid = validate_url_manually(url)
 	if not is_valid:
@@ -126,7 +118,5 @@ async def summarize_webpage(url:str = Query()):
 
 	raw_html = await scraper.scrape_webpage(url)
 	result_dict = scraper.parse_page(raw_html, url)
-	prompt = handler.return_prompt_template('prompts/prompt.txt')
-	api_res = await caller.send_req_to_groq(result_dict, prompt)
-	content = formatter.turn_api_res_to_html(api_res)
-	return HTMLResponse(content=content)
+	api_res = await caller.send_req_to_groq(result_dict)
+	return HTMLResponse(content=markdown.markdown(api_res))
