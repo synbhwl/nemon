@@ -39,9 +39,9 @@ def validate_url_manually(url:str) -> bool:
 	try:
 		result = urlparse(url)
 		if result.scheme != 'https':
-			raise HTTPException(status_code=400, detail='nemon only supports scraping of url with https scheme')
+			return False
 		if result.netloc in ['localhost', '127.0.0.1', '0.0.0.0', '198.168.1.1', '10.0.0.1', '172.16.0.1']:
-			raise HTTPException(status_code=400, detail='invalid url')
+			return False
 		return all([result.scheme, result.netloc])
 	except Exception:
 		return False
@@ -118,7 +118,7 @@ async def summarize_webpage(url:str = Query()):
 
 	is_valid = validate_url_manually(url)
 	if not is_valid:
-		raise HTTPException(status_code=400, detail='invalid url')
+		raise HTTPException(status_code=400, detail='invalid url (tip: nemon only supports scraping of URLs with https scheme)')
 
 	raw_html = await scraper.scrape_webpage(url)
 	result_dict = scraper.parse_page(raw_html, url)
