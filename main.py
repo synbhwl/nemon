@@ -72,7 +72,7 @@ class File_handler:
 			with open(filepath, 'r') as f:
         			prompt = Template(f.read())
 		except Exception as e:
-    			raise RuntimeError(f"error while reading prompt file: {str(e)}")
+    			raise RuntimeError(f"error while reading prompt file")
 		return prompt
 
 class Api_caller:
@@ -86,7 +86,7 @@ class Api_caller:
 			api_key=self.api_key,
         		)
 		except Exception as e:
-    			raise RuntimeError(f"error while making groq client {str(e)}")
+    			raise RuntimeError(f"error while building groq client")
 
 	async def send_req_to_groq(self, result: dict, prompt:str) -> str:
     		prompt_final = prompt.render(title=result["title"], desc=result["description"], page_content=result["content"], url=result["url"])
@@ -102,7 +102,7 @@ class Api_caller:
         			)
         		message = chat_completion.choices[0].message.content
     		except Exception as e:
-        		raise HTTPException(status_code=500, detail=f"err: error while making api call to groq: {str(e)}")
+        		raise HTTPException(status_code=500, detail=f"err: error while making api call to groq")
     		return message
 
 class Format_handler:
